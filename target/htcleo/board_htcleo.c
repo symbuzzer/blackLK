@@ -271,7 +271,7 @@ static bool htcleo_get_vbus_state(void) {
 }
 
 static bool htcleo_usb_online(void) {
-	return htcleo_get_vbus_state(); // !gpio_get(HTCLEO_GPIO_BATTERY_OVER_CHG);
+	return htcleo_get_vbus_state();// !gpio_get(HTCLEO_GPIO_BATTERY_OVER_CHG);
 }
 
 static bool htcleo_ac_online(void) {
@@ -318,6 +318,10 @@ static int htcleo_charger_state(void) {
 	return chgr_state;
 }
 
+static int htcleo_power_key_pressed(void) {
+	return keys_get_state(KEY_POWER);
+}
+
 /*
  * koko: ..._chg_voltage_threshold is used along ds2746 driver
  *		 to detect when the battery is FULL.
@@ -339,6 +343,7 @@ static int htcleo_charger_state(void) {
  */
 static uint32_t default_chg_voltage_threshold[] =
 {
+	3700,
 	3800,
 	3900,
 	4000,
@@ -346,6 +351,134 @@ static uint32_t default_chg_voltage_threshold[] =
 	4200,//DS2746_HIGH_VOLTAGE
 };
 
+// koko: Thanks to Rick_1995 for suggesting the WFI instruction!
+static void htcleo_enter_low_power_state(void) {
+	/*
+	 * Wait for Interrupt is a feature of the ARMv7-A architecture
+	 * that puts the processor in a low power state by disabling most of the clocks in the processor
+	 * while keeping the processor powered up. This reduces the power drawn to the static leakage current,
+	 * leaving a small clock power overhead to enable the processor to wake up from WFI mode.
+	 */
+	arch_idle(); // Make the processor to enter into WFI mode by executing the WFI instruction
+}
+
+int htcleo_suspend(void *arg) {	
+	time_t start_time = current_time();
+	time_t timeout = (time_t)arg;
+	bool countdown = (timeout > 1);
+	
+	uint32_t voltage;
+	bool usb_cable_connected;
+	bool power_key_pressed;
+	
+	if (countdown)
+		htcleo_panel_bkl_pwr(0);
+		
+	do {
+		voltage = ds2746_voltage(DS2746_I2C_SLAVE_ADDR);
+		usb_cable_connected = htcleo_usb_online();
+		power_key_pressed = htcleo_power_key_pressed();
+		
+		if (usb_cable_connected) {
+			if (voltage < (uint32_t)htcleo_chg_voltage_threshold) {
+				// If battery needs charging, set new charger state
+				if (htcleo_ac_online()) {
+					if (htcleo_charger_state() != CHG_AC ) {
+						writel(0x00080000, USB_USBCMD);
+						ulpi_write(0x48, 0x04);
+						htcleo_set_charger(CHG_AC);
+					}
+				} else {
+					if (htcleo_charger_state() != CHG_USB_LOW ) {
+						writel(0x00080001, USB_USBCMD);
+						mdelay(10);
+						htcleo_set_charger(CHG_USB_LOW);
+					}
+				}
+				// Led = solid amber
+				if (htcleo_notif_led_mode != 2)
+					htcleo_led_set_mode(2);
+			} else {
+				// Battery is full
+				if(countdown) {
+					// Set charger state to CHG_OFF_FULL_BAT
+					if (htcleo_charger_state() != CHG_OFF_FULL_BAT ) {
+						writel(0x00080001, USB_USBCMD);
+						mdelay(10);
+						htcleo_set_charger(CHG_OFF_FULL_BAT);
+					}
+					// and turn off led
+					if (htcleo_notif_led_mode != 0)
+						htcleo_led_set_mode(0);
+				} else {
+					// exit while if we don't have a timeout
+					break;
+				}
+			}
+		} else {
+			// Set charger state to CHG_OFF
+			if (htcleo_charger_state() != CHG_OFF ) {
+				writel(0x00080001, USB_USBCMD);
+				mdelay(10);
+				htcleo_set_charger(CHG_OFF);
+			}
+			// and turn off led
+			if (htcleo_notif_led_mode != 0)
+				htcleo_led_set_mode(0);
+			htcleo_enter_low_power_state();
+		}
+		// While in loop keep tracking if POWER button is pressed
+		// in order to (re)boot the device
+		power_key_pressed = htcleo_power_key_pressed();
+		// And check if timeout exceeded in order to reboot
+		if (countdown && (current_time() - start_time >= timeout))
+			target_reboot(0);
+	} while ( (usb_cable_connected && !power_key_pressed)
+			||(countdown && !power_key_pressed) ); // If we have a timeout this while-loop never breaks if we don't reboot.
+		
+	// Reboot if we pressed Power key
+	if(power_key_pressed)
+		target_reboot(0);
+		
+	// Double check voltage
+	mdelay(10);
+	voltage = ds2746_voltage(DS2746_I2C_SLAVE_ADDR);
+	
+	if (voltage < (uint32_t)htcleo_chg_voltage_threshold) {
+		// If battery is not full then
+		// EITHER the cable is unplugged
+		// OR the double check of voltage gave us
+		// a value less than the safe voltage.
+		// Set charger state to CHG_OFF
+		writel(0x00080001, USB_USBCMD);
+		mdelay(10);
+		htcleo_set_charger(CHG_OFF);
+	} else {
+		// If battery is full 
+		// set charger state to CHG_OFF_FULL_BAT
+		writel(0x00080001, USB_USBCMD);
+		mdelay(10);
+		htcleo_set_charger(CHG_OFF_FULL_BAT);
+		// and turn off led
+		if (htcleo_notif_led_mode != 0)
+			htcleo_led_set_mode(0);
+		// While usb cable is connected
+		// keep tracking if POWER button is pressed
+		// in order to (re)boot the device
+		while (htcleo_usb_online()) {
+			htcleo_enter_low_power_state();
+			if(htcleo_power_key_pressed()) {
+				target_reboot(0);
+			}
+		}
+	}
+			
+	// Shutdown the device
+	target_shutdown();
+	
+	return 0;
+}
+/*
 void htcleo_charger_on(void) {
 	uint32_t voltage = ds2746_voltage(DS2746_I2C_SLAVE_ADDR);
 
@@ -360,6 +493,7 @@ void htcleo_charger_on(void) {
 		} else {
 			if (htcleo_charger_state() != CHG_USB_LOW ) {
 				writel(0x00080001, USB_USBCMD);
+				//mdelay(10);
 				thread_sleep(10);
 				htcleo_set_charger(CHG_USB_LOW);
 			}
@@ -371,12 +505,14 @@ void htcleo_charger_on(void) {
 		// Battery is full, set charger state to CHG_OFF_FULL_BAT
 		if (htcleo_charger_state() != CHG_OFF_FULL_BAT ) {
 			writel(0x00080001, USB_USBCMD);
+			//mdelay(10);
 			thread_sleep(10);
 			htcleo_set_charger(CHG_OFF_FULL_BAT);
 		}
-		// and turn led solid green
-		if (htcleo_notif_led_mode != 1)
-			htcleo_led_set_mode(1);
+		htcleo_enter_low_power_state();
+		// and turn off led
+		if (htcleo_notif_led_mode != 0)
+			htcleo_led_set_mode(0);
 	}
 }
 
@@ -384,23 +520,13 @@ void htcleo_charger_off(void) {
 	// Cable unplugged, set charger state to CHG_OFF
 	if (htcleo_charger_state() != CHG_OFF ) {
 		writel(0x00080001, USB_USBCMD);
+		//mdelay(10);
 		thread_sleep(10);
 		htcleo_set_charger(CHG_OFF);
 	}
 	// and turn off led
 	if (htcleo_notif_led_mode != 0)
 		htcleo_led_set_mode(0);
-}
-
-// koko: Thanks to Rick_1995 for suggesting the WFI instruction!
-static void htcleo_enter_low_power_state(void) {
-	/*
-	 * Wait for Interrupt is a feature of the ARMv7-A architecture
-	 * that puts the processor in a low power state by disabling most of the clocks in the processor
-	 * while keeping the processor powered up. This reduces the power drawn to the static leakage current,
-	 * leaving a small clock power overhead to enable the processor to wake up from WFI mode.
-	 */
-	arch_idle(); // Make the processor to enter into WFI mode by executing the WFI instruction
 }
 
 int htcleo_suspend(void *arg) {	
@@ -413,7 +539,7 @@ int htcleo_suspend(void *arg) {
 	if(countdown)
 		htcleo_panel_bkl_pwr(0);
 		
-	while (!power_key_pressed && remaining_time) {
+	while (!power_key_pressed && remaining_time >= 1) {
 		start_time = current_time();
 		power_key_pressed = keys_get_state(KEY_POWER);
 		usb_cable_connected = htcleo_usb_online();
@@ -432,10 +558,11 @@ int htcleo_suspend(void *arg) {
 		}
 		elapsed_time = current_time() - start_time;
 		
-		if (countdown)
+		if (countdown) {
 			// If suspend_time!=1, we wanted to suspend the device for a specific time.
 			// Handle the remaining_time so that we exit loop after the correct time.
 			remaining_time -= elapsed_time;
+		}
 	}
 	
 	// Set charger state to CHG_OFF before
@@ -444,7 +571,7 @@ int htcleo_suspend(void *arg) {
 	
 	// Check if we exited the loop because of a Power button press
 	// or because timeout exceeded, and reboot the device
-	if (power_key_pressed || remaining_time == 0)
+	if (power_key_pressed || remaining_time < 1)
 		target_reboot(0);
 		
 	// We reach this point ONLY IF 
@@ -455,7 +582,7 @@ int htcleo_suspend(void *arg) {
 	
 	return 0;
 }
-
+*/
 static struct pda_power_supply htcleo_power_supply = {
 	.is_ac_online = &htcleo_ac_online,
 	.is_usb_online = &htcleo_usb_online,
@@ -954,30 +1081,22 @@ void htcleo_acpu_clock_init(void)
 {
 	/* if off-mode charging then
 	 *		boot at 245MHz (or 384MHz) */
-	if (device_info.use_inbuilt_charging) {
-		if((htcleo_boot_mark != MARK_BUTTON) && (htcleo_boot_mark != MARK_RESET)) {
-			htcleo_pause_for_battery_charge = 1;
-			msm_acpu_clock_init(0); // 0 => 245MHz, 1 => 384MHz
-			return;
-		}
+	if (htcleo_pause_for_battery_charge) {
+		msm_acpu_clock_init(0); // 0 => 245MHz, 1 => 384MHz
+		return;
 	}
 	/* if suspend-mode for alarm then
 	 *  	boot at 245MHz (or 384MHz) */
 	if ((target_check_reboot_mode() & 0xFF000000) == MARK_ALARM_TAG) {
 		msm_acpu_clock_init(0); // 0 => 245MHz, 1 => 384MHz
 	}
-	/* if entering cLK check device_info.cpu_freq:
+	/* In any other case:
 	 *  if device_info.cpu_freq = 0 then
 	 *  	boot at 768MHz (acpu_freq_tbl[11])
 	 *  if device_info.cpu_freq = 1 then
 	 *  	boot at 998MHz (acpu_freq_tbl[17]) */
-	else if (target_check_reboot_mode() == FASTBOOT_MODE) {
-		msm_acpu_clock_init(11 + (device_info.cpu_freq * 6));
-	}
-	/* In any other case
-	 * give a little boost to 998MHz */
 	else {
-		msm_acpu_clock_init(17);
+		msm_acpu_clock_init(11 + (device_info.cpu_freq * 6));
 	}
 }
 
@@ -993,12 +1112,15 @@ static void htcleo_early_init(void) {
 static void htcleo_init(void) {
 	htcleo_notif_led_mode = 0;
 	htcleo_pause_for_battery_charge = 0;
+	htcleo_chg_voltage_threshold = 0;
 	htcleo_boot_mark = readl(SPL_BOOT_REASON_ADDR);
 	htcleo_reboot_mode = target_check_reboot_mode();
+	
 	htcleo_keypad_init();
 	htcleo_flash_info_init();
 	htcleo_devinfo_init();
 	htcleo_chg_voltage_threshold = default_chg_voltage_threshold[device_info.chg_threshold];
+	htcleo_pause_for_battery_charge = (device_info.use_inbuilt_charging ? (int)((htcleo_boot_mark != MARK_BUTTON) && (htcleo_boot_mark != MARK_RESET)) : 0);
 	htcleo_acpu_clock_init();
 	htcleo_ptable_init();
 }

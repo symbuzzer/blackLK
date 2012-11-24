@@ -1311,11 +1311,12 @@ void eval_sett_menu(char *command)
 		strcpy( shared_menu.MenuId, "DEFAULT CHARGING VOLTAGE THRESHOLD" );
 		strcpy( shared_menu.backCommand, "goto_sett" );
 										
-		add_menu_item(&shared_menu, "   3800 mV", "threshold_0", 0);
-		add_menu_item(&shared_menu, "   3900 mV", "threshold_1", 1);
-		add_menu_item(&shared_menu, "   4000 mV", "threshold_2", 2);
-		add_menu_item(&shared_menu, "   4100 mV", "threshold_3", 3);
-		add_menu_item(&shared_menu, "   4200 mV", "threshold_4", 4);
+		add_menu_item(&shared_menu, "   3700 mV", "threshold_0", 0);
+		add_menu_item(&shared_menu, "   3800 mV", "threshold_1", 1);
+		add_menu_item(&shared_menu, "   3900 mV", "threshold_2", 2);
+		add_menu_item(&shared_menu, "   4000 mV", "threshold_3", 3);
+		add_menu_item(&shared_menu, "   4100 mV", "threshold_4", 4);
+		add_menu_item(&shared_menu, "   4200 mV", "threshold_5", 5);
 		
 		active_menu = &shared_menu;
 		redraw_menu();
@@ -3226,12 +3227,16 @@ void prnt_nand_stat(void)
 	printf("   | ExtROM  (0x%x) size: %4i block(s)  = %5i MB    |\n",
 		get_ext_rom_offset(), get_ext_rom_size(), round((float)(get_ext_rom_size())/(float)(get_blk_per_mb())));
 	printf("   |____________________________________________________|\n");
-#if 0 //set to 1 when ds2746 works
-	printf("   |                                                    |\n");
-	printf("   |      Voltage : %4i mV  --  Current : %4i mA      |\n", ds2746_voltage(DS2746_I2C_SLAVE_ADDR), ds2746_current(DS2746_I2C_SLAVE_ADDR, 1200));
-	printf("   |____________________________________________________|\n");
-#endif
-	//ptable_dump(flash_get_ptable());
+}
+
+void cmd_oem_ptable_dump(void)
+{
+	redraw_menu();
+
+	ptable_dump(flash_get_ptable());
+
+	selector_enable();
+	fastboot_okay("");
 }
 
 void cmd_oem_nand_status(void)
@@ -3470,9 +3475,6 @@ void cmd_oem_mark_block(const char *arg)
 	fastboot_okay("");
 }
 
-/*
- * koko : Removed flashlight and test from cmds - added boot recovery
- */
 void cmd_oem(const char *arg, void *data, unsigned sz)
 {
 	while(*arg==' ') arg++;
@@ -3489,6 +3491,7 @@ void cmd_oem(const char *arg, void *data, unsigned sz)
 	if(memcmp(arg, "part-add ", 9)==0)                     cmd_oem_part_add(arg+9);
 	if(memcmp(arg, "part-del ", 9)==0)                     cmd_oem_part_del(arg+9);
 	if(memcmp(arg, "part-read", 9)==0)                     cmd_oem_part_read();
+	if(memcmp(arg, "part-dump", 9)==0)                     cmd_oem_ptable_dump();
 	if(memcmp(arg, "part-list", 9)==0)                     cmd_oem_part_list();
 	if(memcmp(arg, "part-clear", 10)==0)                   cmd_oem_part_clear();
 	if(memcmp(arg, "format-all", 10)==0)                   cmd_oem_part_format_all();
@@ -3643,7 +3646,7 @@ void aboot_init(const struct app_descriptor *app)
 									&htcleo_suspend,
 									(void *)suspend_time,
 									HIGHEST_PRIORITY,
-									DEFAULT_STACK_SIZE));
+									DEFAULT_STACK_SIZE));			
 		return;
 	}
 	

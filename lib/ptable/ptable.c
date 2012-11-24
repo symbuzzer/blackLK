@@ -44,7 +44,7 @@ void ptable_add(struct ptable *ptable, char *name, unsigned start,
 {
 	struct ptentry *ptn;
 
-	ASSERT(ptable && ptable->count < MAX_PTABLE_PARTS);
+	ASSERT(ptable && (ptable->count < MAX_PTABLE_PARTS));
 
 	ptn = &ptable->parts[ptable->count++];
 	strncpy(ptn->name, name, MAX_PTENTRY_NAME);
