@@ -1716,12 +1716,13 @@ void eval_rept_menu(char *command)
 				}
 				else 	// if selected partition is auto-size
 				{		// give user the option to make it fixed-size
-					sprintf( rept_sub_menu.MenuId, "%s partition is auto-size (%d MB)", rept_sub_menu.data , (int) (device_partition_size(rept_sub_menu.data) / get_blk_per_mb()) );
-					char cancelautosize[32];
-					char cancelautosizecmd[32];
-					sprintf( cancelautosize, "   Convert partition to fixed-size (%d MB)", (int) (device_partition_size(rept_sub_menu.data) / get_blk_per_mb()) );
-					sprintf( cancelautosizecmd, "rept_set_%d", (int) (device_partition_size(rept_sub_menu.data) / get_blk_per_mb()) );
-					add_menu_item(&rept_sub_menu, cancelautosize		, cancelautosizecmd, 0);
+					int autosize = (int) round((float)(device_partition_size(rept_sub_menu.data)) / (float)(get_blk_per_mb()));
+					sprintf( rept_sub_menu.MenuId, "%s partition is auto-size (%d MB)", rept_sub_menu.data , autosize );
+					char cancel_autosize[64];
+					char cancelautosize_cmd[64];
+					sprintf( cancel_autosize, "   Convert to fixed-size (%d MB)", autosize );
+					sprintf( cancelautosize_cmd, "rept_set_%d", autosize );
+					add_menu_item(&rept_sub_menu, cancel_autosize		, cancelautosize_cmd, 0);
 				}
 		
 				active_menu = &rept_sub_menu;
