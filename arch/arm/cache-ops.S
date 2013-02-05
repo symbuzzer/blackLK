@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Travis Geiselbrecht
+ * Copyright (c) 2008-2012 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -37,7 +37,7 @@ FUNCTION(arch_disable_cache)
 	mov		r12, #0						// zero register
 	mrs		r3, cpsr					// save the old interrupt state
 #if ARM_ISA_ARMv6
-	.word	0xf10c01c0	/* cpsid iaf */	// interrupts disabled
+	cpsid 	iaf							// interrupts disabled
 #else
 	orr		r3, r3, #(1<<7)
 	msr		cpsr, r3
@@ -83,7 +83,7 @@ FUNCTION(arch_enable_cache)
 	mov		r12, #0						// zero register
 	mrs		r3, cpsr					// save the old interrupt state
 #if ARM_ISA_ARMv6
-	.word	0xf10c01c0	/* cpsid iaf */	// interrupts disabled
+	cpsid iaf							// interrupts disabled
 #else
 	orr		r3, r3, #(1<<7)
 	msr		cpsr, r3
@@ -124,7 +124,7 @@ FUNCTION(arch_disable_cache)
 	mov		r7, r0						// save flags
 
 	mrs		r12, cpsr					// save the old interrupt state
-	.word	0xf10c01c0	/* cpsid iaf */	// interrupts disabled
+	cpsid	iaf							// interrupts disabled
 
 .Ldcache_disable:
 	tst		r7, #DCACHE
@@ -179,7 +179,7 @@ FUNCTION(arch_enable_cache)
 	mov		r7, r0						// save flags
 
 	mrs		r12, cpsr					// save the old interrupt state
-	.word	0xf10c01c0	/* cpsid iaf */	// interrupts disabled
+	cpsid	iaf							// interrupts disabled
 	
 .Ldcache_enable:
 	tst		r7, #DCACHE
@@ -233,7 +233,7 @@ flush_invalidate_cache_v7:
 	CMP 	R1, #2 
 	BLT 	.Lskip 						// no cache or only instruction cache at this level 
 	MCR 	p15, 2, R10, c0, c0, 0 		// write the Cache Size selection register 
-	.word	0xf57ff06f	// ISB 			// ISB to sync the change to the CacheSizeID reg 
+	isb						 			// ISB to sync the change to the CacheSizeID reg 
 	MRC 	p15, 1, R1, c0, c0, 0 		// reads current Cache Size ID register 
 	AND 	R2, R1, #0x7 				// extract the line length field 
 	ADD 	R2, R2, #4 					// add 4 for the line length offset (log2 16 bytes) 
@@ -260,7 +260,7 @@ flush_invalidate_cache_v7:
 .Lfinished:
 	mov		r10, #0
 	mcr		p15, 2, r10, c0, c0, 0		// select cache level 0
-	.word	0xf57ff06f	// isb
+	isb
 
 	bx		lr
 
@@ -279,7 +279,7 @@ invalidate_cache_v7:
 	CMP 	R1, #2 
 	BLT 	.Lskip_invalidate 			// no cache or only instruction cache at this level 
 	MCR 	p15, 2, R10, c0, c0, 0 		// write the Cache Size selection register 
-	.word	0xf57ff06f	// ISB 			// ISB to sync the change to the CacheSizeID reg 
+	isb						 			// ISB to sync the change to the CacheSizeID reg 
 	MRC 	p15, 1, R1, c0, c0, 0 		// reads current Cache Size ID register 
 	AND 	R2, R1, #0x7 				// extract the line length field 
 	ADD 	R2, R2, #4 					// add 4 for the line length offset (log2 16 bytes) 
@@ -306,7 +306,7 @@ invalidate_cache_v7:
 .Lfinished_invalidate:
 	mov		r10, #0
 	mcr		p15, 2, r10, c0, c0, 0		// select cache level 0
-	.word	0xf57ff06f	// isb
+	isb
 
 	bx		lr
 
@@ -319,29 +319,50 @@ invalidate_cache_v7:
 
 	/* void arch_flush_cache_range(addr_t start, size_t len); */
 FUNCTION(arch_clean_cache_range)
+#if ARM_WITH_CP15
+	add		r2, r0, r1					// calculate the end address
+	bic		r0, #(CACHE_LINE-1)			// align the start with a cache line
 0:
-	mcr    p15, 0, r0, c7, c10, 1    // clean cache to PoC by MVA
-	add    r0, r0, #CACHE_LINE
-	subs  r1, r1, #CACHE_LINE
-	bhs    0b
-
-	mov    r0, #0
-	mcr    p15, 0, r0, c7, c10, 4    // data sync barrier (formerly drain write buffer)
-
-	bx    lr
+	mcr		p15, 0, r0, c7, c10, 1		// clean cache to PoC by MVA
+	add		r0, r0, #CACHE_LINE
+	cmp		r0, r2
+	blo		0b
 	
+	mov		r0, #0
+	mcr		p15, 0, r0, c7, c10, 4		// data sync barrier
+#endif
+	bx		lr
 
 	/* void arch_flush_invalidate_cache_range(addr_t start, size_t len); */
 FUNCTION(arch_clean_invalidate_cache_range)
+#if ARM_WITH_CP15
+	add		r2, r0, r1					// calculate the end address
+	bic		r0, #(CACHE_LINE-1)			// align the start with a cache line
 0:
-	mcr		p15, 0, r0, c7, c14, 1		// clean & invalidate cache to PoC by MVA
+	mcr		p15, 0, r0, c7, c14, 1		// clean & invalidate dcache to PoC by MVA
 	add		r0, r0, #CACHE_LINE
-	subs	r1, r1, #CACHE_LINE
-	bhs		0b
+	cmp		r0, r2
+	blo		0b
 
 	mov		r0, #0
-	mcr		p15, 0, r0, c7, c10, 4		// data sync barrier (formerly drain write buffer)
+	mcr		p15, 0, r0, c7, c10, 4		// data sync barrier
+#endif
+	bx		lr
 
+	/* void arch_invalidate_cache_range(addr_t start, size_t len); */
+FUNCTION(arch_invalidate_cache_range)
+#if ARM_WITH_CP15
+	add		r2, r0, r1					// calculate the end address
+	bic		r0, #(CACHE_LINE-1)			// align the start with a cache line
+0:
+	mcr		p15, 0, r0, c7, c6, 1		// invalidate dcache to PoC by MVA
+	add		r0, r0, #CACHE_LINE
+	cmp		r0, r2
+	blo		0b
+
+	mov		r0, #0
+	mcr		p15, 0, r0, c7, c10, 4		// data sync barrier
+#endif
 	bx		lr
 
 	/* void arch_sync_cache_range(addr_t start, size_t len); */
@@ -354,9 +375,7 @@ FUNCTION(arch_sync_cache_range)
 
 	pop     { pc }
 
-#else
-#error unhandled cpu
-#endif
+#endif // ARM_CPU_...
 
 #else
 

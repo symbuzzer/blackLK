@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Travis Geiselbrecht
+ * Copyright (c) 2008-2009 Travis Geiselbrecht
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -20,7 +20,22 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+/**
+ * @file
+ * @brief  Kernel timer subsystem
+ * @defgroup timer Timers
+ *
+ * The timer subsystem allows functions to be scheduled for later
+ * execution.  Each timer object is used to cause one function to
+ * be executed at a later time.
+ *
+ * Timer callback functions are called in interrupt context.
+ *
+ * @{
+ */
 #include <debug.h>
+#include <assert.h>
 #include <list.h>
 #include <compiler.h>
 #include <kernel/thread.h>
@@ -28,6 +43,11 @@
 #include <platform/timer.h>
 static struct list_node timer_queue;
 
+static enum handler_return timer_tick(void *arg, time_t now);
+
+/**
+ * @brief  Initialize a timer object
+ */
 void timer_initialize(timer_t *timer)
 {
 	timer->magic = TIMER_MAGIC;
@@ -89,6 +109,20 @@ static void timer_set(timer_t *timer, time_t delay, time_t period, timer_callbac
 	exit_critical_section();
 }
 
+/**
+ * @brief  Set up a timer that executes once
+ *
+ * This function specifies a callback function to be called after a specified
+ * delay.  The function will be called one time.
+ *
+ * @param  timer The timer to use
+ * @param  delay The delay, in ms, before the timer is executed
+ * @param  callback  The function to call when the timer expires
+ * @param  arg  The argument to pass to the callback
+ *
+ * The timer function is declared as:
+ *   enum handler_return callback(struct timer *, time_t now, void *arg) { ... }
+ */
 void timer_set_oneshot(timer_t *timer, time_t delay, timer_callback callback, void *arg)
 {
 	if (delay == 0)
@@ -96,6 +130,20 @@ void timer_set_oneshot(timer_t *timer, time_t delay, timer_callback callback, vo
 	timer_set(timer, delay, 0, callback, arg);
 }
 
+/**
+ * @brief  Set up a timer that executes repeatedly
+ *
+ * This function specifies a callback function to be called after a specified
+ * delay.  The function will be called repeatedly.
+ *
+ * @param  timer The timer to use
+ * @param  delay The delay, in ms, before the timer is executed
+ * @param  callback  The function to call when the timer expires
+ * @param  arg  The argument to pass to the callback
+ *
+ * The timer function is declared as:
+ *   enum handler_return callback(struct timer *, time_t now, void *arg) { ... }
+ */
 void timer_set_periodic(timer_t *timer, time_t period, timer_callback callback, void *arg)
 {
 	if (period == 0)
@@ -103,6 +151,9 @@ void timer_set_periodic(timer_t *timer, time_t period, timer_callback callback, 
 	timer_set(timer, period, period, callback, arg);
 }
 
+/**
+ * @brief  Cancel a pending timer
+ */
 void timer_cancel(timer_t *timer)
 {
 	DEBUG_ASSERT(timer->magic == TIMER_MAGIC);
@@ -119,8 +170,8 @@ void timer_cancel(timer_t *timer)
 	 * periodic timer callback.
 	 */
 	timer->periodic_time = 0;
-	//timer->callback = NULL;
-	//timer->arg = NULL;
+	timer->callback = NULL;
+	timer->arg = NULL;
 
 #if PLATFORM_HAS_DYNAMIC_TIMER
 	/* see if we've just modified the head of the timer queue */
@@ -158,8 +209,10 @@ static enum handler_return timer_tick(void *arg, time_t now)
 	for (;;) {
 		/* see if there's an event to process */
 		timer = list_peek_head_type(&timer_queue, timer_t, node);
-		//if (likely(!timer || now < timer->scheduled_time))
-		if (likely(!timer || TIME_LT(now, timer->scheduled_time)))
+		if (likely(timer == 0))
+			break;
+		//LTRACEF("next item on timer queue %p at %lu now %lu (%p, arg %p)\n", timer, timer->scheduled_time, now, timer->callback, timer->arg);
+		if (likely(TIME_LT(now, timer->scheduled_time)))
 			break;
 
 		/* process it */
@@ -172,7 +225,7 @@ static enum handler_return timer_tick(void *arg, time_t now)
 	THREAD_STATS_INC(timers);
 #endif
 
-		//bool periodic = timer->periodic_time > 0;
+		bool periodic = timer->periodic_time > 0;
 
 //		TRACEF("timer %p firing callback %p, arg %p\n", timer, timer->callback, timer->arg);
  		if (timer->callback(timer, now, timer->arg) == INT_RESCHEDULE)
@@ -181,8 +234,8 @@ static enum handler_return timer_tick(void *arg, time_t now)
 		/* if it was a periodic timer and it hasn't been requeued
 		 * by the callback put it back in the list
 		 */
-		if (/*periodic && */!list_in_list(&timer->node) && timer->periodic_time > 0) {
-//			TRACEF("periodic timer, period %u\n", (uint)timer->periodic_time);
+		if (periodic && !list_in_list(&timer->node) && timer->periodic_time > 0) {
+			//LTRACEF("periodic timer, period %u\n", (uint)timer->periodic_time);
 			timer->scheduled_time = now + timer->periodic_time;
 			insert_timer_in_queue(timer);
 		}
@@ -205,8 +258,9 @@ static enum handler_return timer_tick(void *arg, time_t now)
  	if (thread_timer_tick() == INT_RESCHEDULE)
  		ret = INT_RESCHEDULE;
 #endif
- 	// XXX fix this, should return ret
-	return /*ret;*/INT_RESCHEDULE;
+
+	DEBUG_ASSERT(in_critical_section());
+	return ret;
 }
 
 void timer_init(void)

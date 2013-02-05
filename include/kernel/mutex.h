@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
+ * Copyright (c) 2012 Shantanu Gupta
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -23,6 +24,7 @@
 #ifndef __KERNEL_MUTEX_H
 #define __KERNEL_MUTEX_H
 
+#include <debug.h>
 #include <kernel/thread.h>
 
 #if DEBUGLEVEL > 1

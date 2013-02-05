@@ -30,6 +30,9 @@
 extern "C" {
 #endif
 
+#define DSB __asm__ volatile("dsb" ::: "memory")
+#define ISB __asm__ volatile("isb" ::: "memory")
+
 void arm_context_switch(vaddr_t *old_sp, vaddr_t new_sp);
 
 static inline uint32_t read_cpsr() {
@@ -40,6 +43,8 @@ static inline uint32_t read_cpsr() {
 }
 
 struct arm_iframe {
+	uint32_t usp;
+	uint32_t ulr;
 	uint32_t spsr;
 	uint32_t r0;
 	uint32_t r1;

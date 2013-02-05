@@ -213,3 +213,15 @@ load_address:
 abort_stack:
 	.skip 1024
 abort_stack_top:
+
+.data
+.align 2
+
+/* define the heap end a variable containing the end defined in the
+ * linker script. this could be updated during init.
+ */
+.global _heap_end
+_heap_end:
+	.int _end_of_ram
+
+	

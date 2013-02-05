@@ -36,23 +36,26 @@
 #define __SECTION(x) __attribute((section(x)))
 #define __PURE __attribute((pure))
 #define __CONST __attribute((const))
-#define __NO_RETURN __attribute__((noreturn)) 
+#define __NO_RETURN __attribute__((noreturn))
 #define __MALLOC __attribute__((malloc))
 #define __WEAK __attribute__((weak))
 #define __GNU_INLINE __attribute__((gnu_inline))
 #define __GET_CALLER(x) __builtin_return_address(0)
 #define __GET_FRAME(x) __builtin_frame_address(0)
 #define __NAKED __attribute__((naked))
+#define __ISCONSTANT(x) __builtin_constant_p(x)
+#define __NO_INLINE __attribute((noinline))
+#define __SRAM __NO_INLINE __SECTION(".sram.text")
 
-#define INCBIN(symname, sizename, filename, section)					\
-	__asm__ (".section " section "; .align 4; .globl "#symname);		\
-	__asm__ (""#symname ":\n.incbin \"" filename "\"");					\
-	__asm__ (".section " section "; .align 1;");						\
-	__asm__ (""#symname "_end:");										\
-	__asm__ (".section " section "; .align 4; .globl "#sizename);		\
-	__asm__ (""#sizename ": .long "#symname "_end - "#symname " - 1");	\
-	extern unsigned char symname[];										\
-	extern unsigned int sizename
+#define INCBIN(symname, sizename, filename, section)                    \
+    __asm__ (".section " section "; .align 4; .globl "#symname);        \
+    __asm__ (""#symname ":\n.incbin \"" filename "\"");                 \
+    __asm__ (".section " section "; .align 1;");                        \
+    __asm__ (""#symname "_end:");                                       \
+    __asm__ (".section " section "; .align 4; .globl "#sizename);       \
+    __asm__ (""#sizename ": .long "#symname "_end - "#symname " - 1");  \
+    extern unsigned char symname[];                                     \
+    extern unsigned int sizename
 
 #define INCFILE(symname, sizename, filename) INCBIN(symname, sizename, filename, ".rodata")
 
@@ -76,7 +79,8 @@
 #if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)
 /* the may_alias attribute was introduced in gcc 3.3; before that, there
  * was no way to specify aliasiang rules on a type-by-type basis */
-#define __MAY_ALIAS __attribute__((may_alias)) 
+#define __MAY_ALIAS __attribute__((may_alias))
+
 /* nonnull was added in gcc 3.3 as well */
 #define __NONNULL(x) __attribute((nonnull x))
 #else
@@ -105,18 +109,23 @@
 
 /* compiler fence */
 #define CF do { __asm__ volatile("" ::: "memory"); } while(0)
+
 #define __WEAK_ALIAS(x) __attribute__((weak, alias(x)))
 #define __ALIAS(x) __attribute__((alias(x)))
+
 #define __EXPORT __attribute__ ((visibility("default")))
-#define __LOCAL __attribute__ ((visibility("hidden")))
+#define __LOCAL  __attribute__ ((visibility("hidden")))
+
 #define __THREAD __thread
+
+#define __offsetof(type, field) __builtin_offsetof(type, field)
 
 #else
 
 #define likely(x)       (x)
 #define unlikely(x)     (x)
-#define __UNUSED 
-#define __PACKED 
+#define __UNUSED
+#define __PACKED
 #define __ALIGNED(x)
 #define __PRINTFLIKE(__fmt,__varargs)
 #define __SCANFLIKE(__fmt,__varargs)
@@ -132,6 +141,17 @@
 #endif
 
 #endif
+
 /* TODO: add type check */
 #define countof(a) (sizeof(a) / sizeof((a)[0]))
+
+/* CPP header guards */
+#ifdef __cplusplus
+#define __BEGIN_CDECLS  extern "C" {
+#define __END_CDECLS    }
+#else
+#define __BEGIN_CDECLS
+#define __END_CDECLS
+#endif
+
 #endif

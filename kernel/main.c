@@ -100,7 +100,7 @@ void kmain(void)
 
 	// initialize the dpc system
 	//dprintf(SPEW, "Initializing dpc\n");
-	dpc_init();
+	//dpc_init();
 
 	// initialize kernel timers
 	//dprintf(SPEW, "Initializing timers\n");
@@ -111,9 +111,12 @@ void kmain(void)
 	//dprintf(SPEW, "\nCreating bootstrap completion thread\n");
 	
 	// enable interrupts
-	exit_critical_section();
+	//exit_critical_section();
 	
-	thread_resume(thread_create("bootstrap2", &bootstrap2, NULL, DEFAULT_PRIORITY, DEFAULT_STACK_SIZE));
+	//thread_resume(thread_create("bootstrap2", &bootstrap2, NULL, DEFAULT_PRIORITY, DEFAULT_STACK_SIZE));
+	thread_t *t = thread_create("bootstrap2", &bootstrap2, NULL, DEFAULT_PRIORITY, DEFAULT_STACK_SIZE);
+	thread_detach(t);
+	thread_resume(t);
 
 	// become the idle thread
 	thread_become_idle();
@@ -129,6 +132,9 @@ static int bootstrap2(void *arg)
 	//dprintf(SPEW, "Initializing arch\n");
 	arch_init();
 	
+	// initialize the dpc system
+	dpc_init();
+
 	// initialize the rest of the platform
 	//dprintf(SPEW, "Initializing platform\n");
 	platform_init();
