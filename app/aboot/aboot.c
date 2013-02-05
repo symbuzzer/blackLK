@@ -3612,19 +3612,6 @@ void aboot_init(const struct app_descriptor *app)
 		// 0 <= selected_boot <= 7
 		selected_boot = get_code_from_reboot_mode(target_check_reboot_mode(), MARK_OEM_TAG);
 	} else
-	/*
-	// Exploiting MARK_OEM_TAG => Suspend device for given time
-	if((target_check_reboot_mode() & 0xFFFFFF00) ==  MARK_OEM_TAG) {
-		// Get MinutesToSuspend from the reboot_mode
-		MinutesToSuspend = get_code_from_reboot_mode(target_check_reboot_mode(), MARK_OEM_TAG);
-		if (MinutesToSuspend > 3)
-			MinutesToSuspend -= 2;
-			
-		suspend_time = (time_t)(MinutesToSuspend * 60000);
-		show_multi_boot_screen = 0;
-		boot_into_recovery = 0;
-	} else
-	*/
 	// Exploiting MARK_ALARM_TAG => Suspend device for given time
 	if((target_check_reboot_mode() & 0xFF000000) == MARK_ALARM_TAG) {
 		// Get MinutesToSuspend from the reboot_mode
@@ -3652,9 +3639,16 @@ void aboot_init(const struct app_descriptor *app)
 	}
 	
 // Handle misc command page according to value of boot_into_recovery
-	if (boot_into_recovery == 1)
+	if (boot_into_recovery == 1) {
+		if(device_info.fill_bbt_at_start && flash_bad_blocks < 0 ){
+			thread_resume(thread_create("fill_bad_block_table",
+										&bbtbl,
+										NULL,
+										HIGHEST_PRIORITY,
+										DEFAULT_STACK_SIZE));
+		}
 		recovery_init();
-
+	}
 // Check whether to show multiboot menu or not.
 // show_multi_boot_screen will still be negative if none of the above checks changed it.
 // This may happen if we just (re)booted with no interaction.
@@ -3699,7 +3693,7 @@ bmenu:
 										DEFAULT_PRIORITY,
 										DEFAULT_STACK_SIZE));*/
 										
-			if(device_info.fill_bbt_at_start){
+			if(device_info.fill_bbt_at_start && flash_bad_blocks < 0 ){
 				thread_resume(thread_create("fill_bad_block_table",
 											&bbtbl,
 											NULL,
