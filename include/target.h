@@ -30,7 +30,10 @@ void target_early_init(void);
 void target_init(void);
 /* prepare the device for (re)boot */
 void target_exit(void);
-/* get memory address for fastboot image loading */
+/* get memory addresses */
+void* target_get_tags_address(void);
+void* target_get_kernel_address(void);
+void* target_get_ramdisk_address(void);
 void* target_get_scratch_address(void);
 /* get memory size for fastboot image loading */
 unsigned target_get_scratch_size(void);

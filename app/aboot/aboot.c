@@ -2776,8 +2776,8 @@ int boot_linux_from_flash(void)
 	}
 	
 #ifdef FORCE_BOOT_ADDR //currently undefined
-	hdr->kernel_addr = KERNEL_ADDR;
-	hdr->ramdisk_addr = RAMDISK_ADDR;
+	hdr->kernel_addr = target_get_kernel_address();
+	hdr->ramdisk_addr = target_get_ramdisk_address();
 #endif
 
 	if (hdr->page_size != page_size) {
@@ -2817,7 +2817,7 @@ int boot_linux_from_flash(void)
 #endif
 		
 	/* TODO: create/pass atags to kernel */
-	boot_linux( (void *)hdr->kernel_addr, (void *)TAGS_ADDR,
+	boot_linux( (void *)hdr->kernel_addr, target_get_tags_address(),
 				(const char *) cmdline, (unsigned)target_machtype(),
 				(void *)hdr->ramdisk_addr, hdr->ramdisk_size );
 	return 0;
@@ -2856,16 +2856,16 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	kernel_actual = ROUND_TO_PAGE(hdr.kernel_size, page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr.ramdisk_size, page_mask);
 
-	memmove((void*) KERNEL_ADDR, ptr + page_size, hdr.kernel_size);
-	memmove((void*) RAMDISK_ADDR, ptr + page_size + kernel_actual, hdr.ramdisk_size);
+	memmove(target_get_kernel_address(), ptr + page_size, hdr.kernel_size);
+	memmove(target_get_ramdisk_address(), ptr + page_size + kernel_actual, hdr.ramdisk_size);
 
 	fastboot_okay("");
 	target_battery_charging_enable(0, 1);
 	udc_stop();
 
-	boot_linux( (void*) KERNEL_ADDR, (void*) TAGS_ADDR,
+	boot_linux( target_get_kernel_address(), target_get_tags_address(),
 				(const char*) hdr.cmdline, (unsigned)target_machtype(),
-				(void*) RAMDISK_ADDR, hdr.ramdisk_size );
+				target_get_ramdisk_address(), hdr.ramdisk_size );
 }
 
 void cmd_erase(const char *arg, void *data, unsigned sz)
@@ -3562,107 +3562,71 @@ void change_ptn_layout(void)
 	char buf[1024], msg_recovery[1024], msg_command[32];
 	char *tmp_buff, *sname, *ssize;	
 	struct recovery_message msg;
-	int ptn_count = 0;
+	unsigned size = 0, min_size = 0, ptn_count = 0;
 	
-	htcleo_display_init();
-	printf(  "\n __________________________________________________________ \
-				|                                                          |");
-	printf(	   "|  (L) i t t l e - (K) e r n e l      b o o t L o a d e r  |\
-				|__________________________________________________________|\n");
 	// Get recovery_message
 	if(get_recovery_message(&msg))
 		return;
 	msg.recovery[sizeof(msg.recovery)-1] = '\0';
 	strcpy(buf, msg.recovery);
 	
+	htcleo_display_init();
+	printf(  "\n __________________________________________________________ \
+				|                                                          |");
+	printf(	   "|  (L) i t t l e - (K) e r n e l      b o o t L o a d e r  |\
+				|__________________________________________________________|\n");
 	// Parse each line of command
 	tmp_buff = strtok(buf, "\n");
 	while (tmp_buff != NULL) {
-		if (!memcmp(tmp_buff, "recovery", 8)) {
-			ptn_count++;
-			sname = "recovery";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);
-			device_resize_ex(sname, atoi(ssize), false);
-		} else if (!memcmp(tmp_buff, "misc", 4)) {
-			ptn_count++;
-			sname = "misc";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);
-			device_resize_ex(sname, atoi(ssize), false);		
-		} else if (!memcmp(tmp_buff, "boot", 4)) {
-			ptn_count++;
-			sname = "boot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "sboot", 5)) {
-			ptn_count++;
-			sname = "sboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "tboot", 5)) {
-			ptn_count++;
-			sname = "tboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "vboot", 5)) {
-			ptn_count++;
-			sname = "vboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "wboot", 5)) {
-			ptn_count++;
-			sname = "wboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "xboot", 5)) {
-			ptn_count++;
-			sname = "xboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "yboot", 5)) {
-			ptn_count++;
-			sname = "yboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "zboot", 5)) {
-			ptn_count++;
-			sname = "zboot";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);	
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "system", 6)) {
-			ptn_count++;
-			sname = "system";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);
-			device_resize_ex(sname, atoi(ssize), false);		
-		} else if (!memcmp(tmp_buff, "userdata", 8)) {
-			ptn_count++;
-			sname = "userdata";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);
-			device_resize_ex(sname, atoi(ssize), false);	
-		} else if (!memcmp(tmp_buff, "cache", 5)) {
-			ptn_count++;
-			sname = "cache";
-			ssize = strchr(tmp_buff, ':')+1;
-			printf("Increasing %s's size to %sMB...\n", sname, ssize);
-			device_resize_ex(sname, atoi(ssize), false);
-		} else {
-			// tmp_buff contains zip's filename (i.e. "CM7_v1.zip").
-			// Set msg_recovery to "--update_package=filename" for OpenRecoveryScript
+		if (strpbrk(tmp_buff, ":") != NULL) {
+			if (!memcmp(tmp_buff, "recovery", 8))
+				sname = "recovery";
+			else if (!memcmp(tmp_buff, "misc", 4))
+				sname = "misc";
+			else if (!memcmp(tmp_buff, "boot", 4))
+				sname = "boot";
+			else if (!memcmp(tmp_buff, "sboot", 5))
+				sname = "sboot";
+			else if (!memcmp(tmp_buff, "tboot", 5))
+				sname = "tboot";
+			else if (!memcmp(tmp_buff, "vboot", 5))
+				sname = "vboot";
+			else if (!memcmp(tmp_buff, "wboot", 5))
+				sname = "wboot";
+			else if (!memcmp(tmp_buff, "xboot", 5))
+				sname = "xboot";
+			else if (!memcmp(tmp_buff, "yboot", 5))
+				sname = "yboot";
+			else if (!memcmp(tmp_buff, "zboot", 5))
+				sname = "zboot";
+			else if (!memcmp(tmp_buff, "system", 6))
+				sname = "system";
+			else if (!memcmp(tmp_buff, "userdata", 8))
+				sname = "userdata";
+			else if (!memcmp(tmp_buff, "cache", 5))
+				sname = "cache";
+			else
+				sname = NULL;
+				
+			if (sname != NULL) {
+				ssize = strchr(tmp_buff, ':')+1;
+				// get required minimum size
+				min_size = atoi(ssize);
+				// get actual size
+				size = device_partition_size(sname)/get_blk_per_mb();
+				// compare
+				if (size < min_size) {
+					ptn_count++;
+					printf("Increasing %s's size to %sMB...\n", sname, ssize);
+					device_resize_ex(sname, min_size, false);
+				}
+			}
+		} else if (strpbrk(tmp_buff, "=") != NULL) {
+			// tmp_buff contains either zip's filename (i.e. "--update_package=CM7_v1.zip")
+			// or restore's foldername (i.e. "--restore=2013-01-07--12-59-28|BDSM").
 			strcpy(msg_command, "boot-recovery");
 			strcpy(msg_recovery, "recovery\n");
-			strcat(msg_recovery, "--update_package=");
-			strcat(msg_recovery, tmp_buff);
+			strcat(msg_recovery, tmp_buff);			
 		}
 		tmp_buff = strtok(NULL, "\n");
 	}
@@ -3671,8 +3635,9 @@ void change_ptn_layout(void)
 	if (ptn_count) {
 		// ..apply changes
 		device_commit();
+		device_list();
+		printf("\n       New PTABLE layout has been successfully loaded\n");
 		htcleo_ptable_re_init();
-		printf("\nNew PTABLE layout has been successfully loaded.\n");
 	}
 	
 	// Set recovery_message's command

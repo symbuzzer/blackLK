@@ -132,6 +132,21 @@ char* target_get_cmdline(void)
 	return target_board->cmdline;
 }
 
+void* target_get_tags_address(void)
+{
+	return target_board->tags_address;
+}
+
+void* target_get_kernel_address(void)
+{
+	return target_board->kernel_address;
+}
+
+void* target_get_ramdisk_address(void)
+{
+	return target_board->ramdisk_address;
+}
+
 void* target_get_scratch_address(void)
 {
 	return target_board->scratch_address;
@@ -139,7 +154,7 @@ void* target_get_scratch_address(void)
 
 unsigned target_get_scratch_size(void)
 {
-	return target_board->scratch_size;
+	return (MEMBASE - (unsigned)target_board->scratch_address - 0x00100000);
 }
 
 unsigned target_support_flashlight(void)

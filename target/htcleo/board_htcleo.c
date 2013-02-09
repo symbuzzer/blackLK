@@ -1137,7 +1137,7 @@ unsigned *htcleo_atag(unsigned *ptr)
 	*ptr++ = 4;
 	*ptr++ = 0x4C47414D;
 	*ptr++ = 0x004b4c63;
-	*ptr++ = 10;
+	*ptr++ = 13;
 
 	return ptr;
 }
@@ -1150,8 +1150,10 @@ struct board_mach htcleo = {
 	.flashlight      = (void *)	  htcleo_flashlight,
 	.mach_type       = MACH_TYPE_HTCLEO,
 	.cmdline         = (char *)   "console=null",
-	.scratch_address = (void *)   0x12C00000,
-	.scratch_size    = (unsigned) 0x15300000,
+	.tags_address    = (void *)   TAGS_ADDR,//0x11800100,
+	.kernel_address  = (void *)   KERNEL_ADDR,//0x11808000,
+	.ramdisk_address = (void *)   RAMDISK_ADDR,//0x12200000,
+	.scratch_address = (void *)   SCRATCH_ADDR,//0x12C00000,
 };
 
 /************************************ END **************************************/

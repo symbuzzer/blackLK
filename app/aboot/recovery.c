@@ -99,15 +99,15 @@ int set_recovery_message(const struct recovery_message *in)
 	}
 
 	n = pagesize * (MISC_COMMAND_PAGE + 1);
-	if (flash_read(ptn, offset, (void *)SCRATCH_ADDR, n)) {
+	if (flash_read(ptn, offset, target_get_scratch_address(), n)) {
 		dprintf(CRITICAL, "   ERROR: Cannot read recovery_header\n");
 		return -1;
 	}
 
 	offset += (pagesize * MISC_COMMAND_PAGE);
-	offset += SCRATCH_ADDR;
+	offset += (unsigned)target_get_scratch_address();
 	memcpy((void *)offset, in, sizeof(*in));
-	if (flash_write(ptn, 0, (void *)SCRATCH_ADDR, n)) {
+	if (flash_write(ptn, 0, target_get_scratch_address(), n)) {
 		dprintf(CRITICAL, "   ERROR: flash write fail!\n");
 		return -1;
 	}
@@ -170,7 +170,7 @@ int update_firmware_image (struct update_header *header, char *name)
 	offset += header->image_offset;
 	n = (header->image_length + pagemask) & (~pagemask);
 
-	if (flash_read(ptn, offset, (void *)SCRATCH_ADDR, n)) {
+	if (flash_read(ptn, offset, target_get_scratch_address(), n)) {
 		dprintf(CRITICAL, "   ERROR: Cannot read radio image\n");
 		return -1;
 	}
@@ -181,7 +181,7 @@ int update_firmware_image (struct update_header *header, char *name)
 		return -1;
 	}
 
-	if (flash_write(ptn, 0, (void *)SCRATCH_ADDR, n)) {
+	if (flash_write(ptn, 0, target_get_scratch_address(), n)) {
 		dprintf(CRITICAL, "   ERROR: flash write fail!\n");
 		return -1;
 	}

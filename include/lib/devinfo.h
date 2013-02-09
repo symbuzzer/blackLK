@@ -84,7 +84,7 @@ int lk_size;
 unsigned device_available_size();
 int device_variable_exist();
 bool device_partition_exist(const char* pName);
-int device_partition_size(const char* pName);
+unsigned device_partition_size(const char* pName);
 int device_partition_order(const char* pName);
 int mirror_partition_order(const char* pName);
 unsigned device_boot_ptn_num();

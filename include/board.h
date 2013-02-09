@@ -22,8 +22,10 @@ struct board_mach {
 	unsigned (*atag)(unsigned *ptr);
 	unsigned mach_type;
 	char *cmdline;
+	void *tags_address;
+	void *kernel_address;
+	void *ramdisk_address;
 	void *scratch_address;
-	unsigned scratch_size;
 }( *target_board);
 
 void board_init(void);

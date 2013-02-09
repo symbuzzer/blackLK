@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <target.h>
 #include <lib/devinfo.h>
 
 #define EXT_ROM_BLOCKS 191
@@ -114,10 +114,10 @@ int write_device_info(const struct dev_info *in)
 		return -1;
 	}
 
-	memset( (void*) SCRATCH_ADDR, 0, pagesize );
-	memcpy( (void*) SCRATCH_ADDR, (void*) in, sizeof( *in ) );
+	memset( target_get_scratch_address(), 0, pagesize );
+	memcpy( target_get_scratch_address(), (void*) in, sizeof( *in ) );
 
-	if ( flash_write( ptn, 0, (void*) SCRATCH_ADDR, pagesize ) )
+	if ( flash_write( ptn, 0, target_get_scratch_address(), pagesize ) )
 	{
 		printf( "   ERROR: failed to write DEVINFO header!!!\n" );
 		return -1;
@@ -161,7 +161,7 @@ bool device_partition_exist(const char* pName)
 	return 0;
 }
 
-int device_partition_size(const char* pName)
+unsigned device_partition_size(const char* pName)
 {
 	for ( unsigned i = 0; i < MAX_NUM_PART; i++ )
 	{
