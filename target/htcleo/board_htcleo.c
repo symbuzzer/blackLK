@@ -319,7 +319,12 @@ static int htcleo_charger_state(void) {
 }
 
 static int htcleo_power_key_pressed(void) {
-	return keys_get_state(KEY_POWER);
+	int kp = 0;
+	if(keys_get_state(KEY_POWER)
+	|| keys_get_state(KEY_SOFT1))
+		kp = 1;
+		
+	return kp;
 }
 
 /*
