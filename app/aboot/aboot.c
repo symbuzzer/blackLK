@@ -3560,9 +3560,11 @@ uint32_t get_code_from_reboot_mode(uint32_t reboot_mode, uint32_t mark) {
 void change_ptn_layout(void)
 {
 	char buf[1024], msg_recovery[1024], msg_command[32];
-	char *tmp_buff, *sname, *ssize;	
+	char *tmp_buff;	
 	struct recovery_message msg;
-	unsigned size = 0, min_size = 0, ptn_count = 0;
+	unsigned i, j, k, diff, size = 0, min_size = 0, ptn_count = 0, done = 0;
+	char ** partNames = NULL;
+	char ** partMinSizes = NULL;
 	
 	// Get recovery_message
 	if(get_recovery_message(&msg))
@@ -3578,48 +3580,72 @@ void change_ptn_layout(void)
 	// Parse each line of command
 	tmp_buff = strtok(buf, "\n");
 	while (tmp_buff != NULL) {
-		if (strpbrk(tmp_buff, ":") != NULL) {
-			if (!memcmp(tmp_buff, "recovery", 8))
-				sname = "recovery";
-			else if (!memcmp(tmp_buff, "misc", 4))
-				sname = "misc";
-			else if (!memcmp(tmp_buff, "boot", 4))
-				sname = "boot";
-			else if (!memcmp(tmp_buff, "sboot", 5))
-				sname = "sboot";
-			else if (!memcmp(tmp_buff, "tboot", 5))
-				sname = "tboot";
-			else if (!memcmp(tmp_buff, "vboot", 5))
-				sname = "vboot";
-			else if (!memcmp(tmp_buff, "wboot", 5))
-				sname = "wboot";
-			else if (!memcmp(tmp_buff, "xboot", 5))
-				sname = "xboot";
-			else if (!memcmp(tmp_buff, "yboot", 5))
-				sname = "yboot";
-			else if (!memcmp(tmp_buff, "zboot", 5))
-				sname = "zboot";
-			else if (!memcmp(tmp_buff, "system", 6))
-				sname = "system";
-			else if (!memcmp(tmp_buff, "userdata", 8))
-				sname = "userdata";
-			else if (!memcmp(tmp_buff, "cache", 5))
-				sname = "cache";
-			else
-				sname = NULL;
-				
-			if (sname != NULL) {
-				ssize = strchr(tmp_buff, ':')+1;
-				// get required minimum size
-				min_size = atoi(ssize);
-				// get actual size
-				size = device_partition_size(sname)/get_blk_per_mb();
-				// compare
-				if (size < min_size) {
-					ptn_count++;
-					printf("Increasing %s's size to %sMB...\n", sname, ssize);
-					device_resize_ex(sname, min_size, false);
-				}
+		if (strpbrk(tmp_buff, ":") != NULL) {			
+			if (!memcmp(tmp_buff, "recovery", 8)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "recovery";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "misc", 4)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "misc";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "boot", 4)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "boot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "sboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "sboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "tboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "tboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "vboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "vboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "wboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "wboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "xboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "xboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "yboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "yboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "zboot", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "zboot";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "system", 6)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "system";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "userdata", 8)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "userdata";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
+			} else if (!memcmp(tmp_buff, "cache", 5)) {
+				partNames = realloc(partNames, sizeof(char*) * (++ptn_count));
+				partNames[ptn_count-1] = "cache";
+				partMinSizes = realloc(partMinSizes, sizeof(char*) * (ptn_count));
+				partMinSizes[ptn_count-1] = strchr(tmp_buff, ':')+1;
 			}
 		} else if (strpbrk(tmp_buff, "=") != NULL) {
 			// tmp_buff contains either zip's filename (i.e. "--update_package=CM7_v1.zip")
@@ -3630,9 +3656,59 @@ void change_ptn_layout(void)
 		}
 		tmp_buff = strtok(NULL, "\n");
 	}
+	partNames = realloc(partNames, sizeof(char*) * (ptn_count+1));
+	partNames[ptn_count] = 0;
 
-	// If at least one partition has been resized...
+	// If at least one partition is to be resized...
 	if (ptn_count) {
+		for (i = 0; i < (ptn_count); i++) {
+			done = 0;
+			// get required minimum size
+			min_size = atoi(partMinSizes[i]);
+			printf("%s's required min size: %i blocks\n", partNames[i], min_size);
+			// get actual size
+			size = device_partition_size(partNames[i]);
+			printf("%s's actual size: %i blocks\n", partNames[i], size);
+			// compare
+			if (min_size > size) {
+				diff = min_size - size;
+				if (!memcmp(partNames[i], device_variable_name(), strlen(partNames[i]))) {
+					// This is the variable partition
+					printf("Partition '%s' is flaged as 'auto-size'.\n", partNames[i]);
+					// Go through all existing partitions
+					for (j = 1; j < MAX_NUM_PART; j++) {
+						if (!memcmp(device_info.partition[j].name, partNames[i], strlen(partNames[i])))
+							continue; // skip the one we want to currently resize
+						printf("Checking if '%s' can be used as donor.\n", device_info.partition[j].name);
+						// find the first partition that has enough space
+						if ((device_info.partition[j].size) > (short)(diff + 8/*1MB*/)) {
+							// check if that partition is not also present in partNames
+							for (k = 0; k < (ptn_count+1); k++) {
+								if (memcmp(device_info.partition[j].name, partNames[k], strlen(partNames[k]))) {
+									printf("Using partition '%s' as donor.\n", device_info.partition[j].name);
+									device_info.partition[j].size -= (diff);
+									done = 1;
+									break;
+								} else
+									printf("Skipping partition '%s'.\n", device_info.partition[j].name);
+							}
+							break;
+						} else
+							printf("Skipping partition '%s'.\n", device_info.partition[j].name);
+					}
+					device_info.partition[device_partition_order(partNames[i])-1].size += (diff);
+				} else {
+					device_resize_ex(partNames[i], min_size, true);
+					done = 1;
+				}
+				if (done == 1)
+					printf("Successfully increased %s's size by %i blocks...\n", partNames[i], diff);
+				else
+					goto err;
+			}
+		}
+		free(partNames);
+		free(partMinSizes);
 		// ..apply changes
 		device_commit();
 		device_list();
@@ -3641,16 +3717,26 @@ void change_ptn_layout(void)
 	}
 	
 	// Set recovery_message's command
+	//printf("\nRecovery msg: %s", msg_recovery);
 	strcpy(msg.command, msg_command);
 	strcpy(msg.status, "OKAY");
 	strcpy(msg.recovery, msg_recovery);
 	set_recovery_message(&msg);
 
-	printf("\nDevice will enter Recovery in 4s...");
-	mdelay(4000);
+	printf("\nDevice will enter Recovery in 5s...");
+	mdelay(5000);
 	// Boot into recovery to continue installing the zip file
 	boot_into_recovery = 1;
 	boot_linux_from_flash();
+	
+err:
+	{
+		printf("\nSomething went wrong!\n");
+		printf("Device will enter cLK's Main Menu in 4s...\n");
+		mdelay(4000);
+		// Reboot to cLK
+		target_reboot(FASTBOOT_MODE);
+	}
 }
 
 void aboot_init(const struct app_descriptor *app)

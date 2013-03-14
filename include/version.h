@@ -3,4 +3,4 @@
 #endif
 
 #define __VERSION_H
-static char *PSUEDO_VERSION = "1.5.1.9";
+static char *PSUEDO_VERSION = "1.5.2.0";
