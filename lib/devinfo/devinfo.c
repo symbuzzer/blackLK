@@ -516,7 +516,7 @@ void device_create_default()
 	device_clear();
 	
 	device_set_lk_partition();
-	device_add( "recovery:6" );
+	device_add( "recovery:8" );
 	device_add( "boot:5" );
 	device_add( "misc:1" );
 	device_add( "system:150" );

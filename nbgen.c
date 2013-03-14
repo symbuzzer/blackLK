@@ -15,8 +15,8 @@
 #define ARRAYSIZE( array ) ( sizeof( array ) / sizeof( array[0] ) )
 
 #define TAG_INFO			"DEVINFO"
-#define PART_DEFAULT		"recovery=6,boot=5,misc=1,system=150,userdata=0,cache=5"
-#define PART_DEFAULT_EXT_ON	"recovery=6,boot=5,misc=1,system=150,userdata=0,cache=192!"
+#define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=5"
+#define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=192!"
 #define round(x) ((long)((x)+0.5))
 const char* partLayout;
 
