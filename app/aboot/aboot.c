@@ -2218,6 +2218,7 @@ void eval_keydown(unsigned key_code)
 	}
 }
 
+#if TIMER_HANDLES_KEY_PRESS_EVENT
 /*
  * ...WIP...
  * koko: Attempt to handle key press events with a timer, to get rid of key_listener thread
@@ -2226,7 +2227,6 @@ void eval_keydown(unsigned key_code)
  *									2)Flashlight can't turn off						[  !  ]
  *									3)Fastboot doesn't work after pressing any key 	[  !  ]
  */
-#if TIMER_HANDLES_KEY_PRESS_EVENT
 struct timer key_listener_timer;
 static int keydown(void *arg)
 {
@@ -2303,16 +2303,21 @@ char *get_rom_name_from_cmdline(struct ptentry *ptn)
 	}
 
 	//Check if the cmdline has more then one args
+	int chk = 0;
 	if (strpbrk(cmdline, " ") != NULL) {
-		//check rel_path=$RomName as 1st arg
 		tmp_buff = strtok( cmdline, " " );
+		if(!memcmp(tmp_buff, "console=", 8)
+		|| !memcmp(tmp_buff, "no_console_suspend=", 19)) chk++;
+		//check rel_path=$RomName as 1st arg
 		if (!memcmp(tmp_buff, "rel_path=", 9 )) {
 			tmp_buff = strchr( tmp_buff, '=' );
 			//final check for the lenght
 			return (strlen(tmp_buff) > 43 ? "LONGNAME" : (tmp_buff+1));
 		} else {
-			//check rel_path=$RomName as 2nd arg
 			tmp_buff = strtok( NULL, " " );
+			if(!memcmp(tmp_buff, "console=", 8)
+			|| !memcmp(tmp_buff, "no_console_suspend=", 19)) chk++;
+			//check rel_path=$RomName as 2nd arg
 			if (!memcmp(tmp_buff, "rel_path=", 9 )) {
 				tmp_buff = strchr( tmp_buff, '=' );
 				//final check for the lenght
@@ -2327,7 +2332,10 @@ char *get_rom_name_from_cmdline(struct ptentry *ptn)
 			return (strlen(tmp_buff) > 43 ? "LONGNAME" : (tmp_buff+1));
 		}
 	}
-		
+
+	if (chk > 1)
+		return "NAND";
+	
 	return "UNDEFINED";
 }
 

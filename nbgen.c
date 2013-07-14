@@ -17,10 +17,10 @@
 #define TAG_INFO			"DEVINFO"
 #define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=5"
 #define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=192!"
-#define round(x) ((long)((x)+0.5))
+
 const char* partLayout;
 
-int noParts, noRec, noXtra;
+int noParts, noRec, noXtra, noSys, noBoot;
 
 struct NbgPart
 {
@@ -55,7 +55,7 @@ struct PartEntry
 
 struct part_def
 {
-	char name[32];								// partition name (identifier in mtd device)
+	char name[32];					// partition name (identifier in mtd device)
 	short size __attribute__ ((aligned(4)));	// size in blocks 1Mb = 8 Blocks
 	bool asize __attribute__ ((aligned(4)));	// auto-size and use all available space 1=yes 0=no
 };
@@ -95,11 +95,23 @@ int MBToBlocks(size_t size)
 	return size * 1024 * 1024 / 0x20000;
 }
 
+unsigned long roundUp(unsigned long sz, unsigned long multiple) {
+	if (multiple == 0)
+		return sz;
+
+	unsigned long remainder = sz % multiple;
+	if (remainder == 0)
+		return sz;
+	return (sz + multiple - remainder);
+}
+
+#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__CYGWIN__)
 char* basename(const char* filename)
 {
   char *p = strrchr (filename, '/');
   return p ? p + 1 : (char *) filename;
 }
+#endif
 
 int FillLKPart(const char* lkFile)
 {
@@ -130,62 +142,17 @@ int FillLKPart(const char* lkFile)
 
 	return 0;
 }
-	
-int FillRecoveryPart(const char* recoveryFile)
+
+int FillPart(const char* xFile, int* n)
 {
-	if ( recoveryFile == NULL )
-		return 0;
-
-	// Validate recovery file
-	struct stat st;
-	if ( stat( recoveryFile, &st ) != 0 )
-	{
-		fprintf( stderr, "%s recovery file not found\n", recoveryFile );
-		return -1;
-	}
-
-	// Find partition index
-	int idxPart;
-	for ( idxPart = 0; idxPart < noParts; idxPart++ )
-	{
-		if ( strcmp( vparts.pdef[idxPart].name, "recovery" ) == 0 ){
-			noRec=idxPart;
-			break;
-		}
-	}
-		
-	// Validate partition count
-	if ( idxPart >= ARRAYSIZE( vparts.pdef ) )
-	{
-		fprintf( stderr, "Too many partitions, max=%d\n", ARRAYSIZE( vparts.pdef ) );
-		return -1;
-	}
-
-	//int size = Blocks( st.st_size ); // Size in blocks
-	int rsize = (1024*1024)*round((float)(st.st_size)/(1024*1024));
-	// Set recovery partition, should be the first one, right after partition layout
-	// in order to keep the NBH file at a minimum size
-	strcpy( vparts.pdef[idxPart].name, "recovery" );
-	if ( (vparts.pdef[idxPart].size*1024*1024) < rsize )
-	{
-		vparts.pdef[idxPart].size = Blocks( rsize );
-	}
-
-	fprintf( stderr, "[] recovery image:\n\t\t %s, blocks=%d, size=%d MB\n", recoveryFile, Blocks( rsize ), BlocksToMB( Blocks( rsize ) ) );
-
-	return 0;
-}
-
-int FillXtraPart(const char* xtraFile)
-{
-	if ( xtraFile == NULL )
+	if ( xFile == NULL )
 		return 0;
 
 	// Validate file
 	struct stat st;
-	if ( stat( xtraFile, &st ) != 0 )
+	if ( stat( xFile, &st ) != 0 )
 	{
-		fprintf( stderr, "%s file not found\n", xtraFile );
+		fprintf( stderr, "%s file not found\n", xFile );
 		return -1;
 	}
 	
@@ -193,8 +160,8 @@ int FillXtraPart(const char* xtraFile)
 	int idxPart;
 	for ( idxPart = 0; idxPart < noParts; idxPart++ )
 	{
-		if ( strcmp( vparts.pdef[idxPart].name, strndup( basename(xtraFile), strlen(basename(xtraFile))-4) ) == 0 ){
-			noXtra=idxPart;
+		if ( strcmp( vparts.pdef[idxPart].name, strndup( basename(xFile), strlen(basename(xFile))-4) ) == 0 ){
+			*n = idxPart;
 			break;
 		}
 	}
@@ -202,17 +169,17 @@ int FillXtraPart(const char* xtraFile)
 	// Validate partition count
 	if ( idxPart >= ARRAYSIZE( vparts.pdef ) )
 	{
-		fprintf( stderr, "Too many partitions, max=%d\n", ARRAYSIZE( vparts.pdef ) );
+		fprintf( stderr, "Too many partitions, max=%lu\n", ARRAYSIZE( vparts.pdef ) );
 		return -1;
 	}
 
-	strcpy( vparts.pdef[idxPart].name, strndup( basename(xtraFile), strlen(basename(xtraFile))-4) );
+	strcpy( vparts.pdef[idxPart].name, strndup( basename(xFile), strlen(basename(xFile))-4) );
 	// Handle Size
-	int rsize = (1024*1024)*round((float)(st.st_size)/(1024*1024));
+	int rsize = roundUp(st.st_size, 1024*1024);
 	if ( (vparts.pdef[idxPart].size*1024*1024) < rsize )
 		vparts.pdef[idxPart].size = Blocks( rsize );
 
-	fprintf( stderr, "[] %s image:\n\t\t %s, blocks=%d, size=%d MB\n", strndup( basename(xtraFile), strlen(basename(xtraFile))-4), xtraFile, Blocks( rsize ), BlocksToMB( Blocks( rsize ) ) );
+	fprintf( stderr, "[] %s image:\n\t\t %s, blocks=%d, size=%d MB\n", strndup( basename(xFile), strlen(basename(xFile))-4), xFile, Blocks( rsize ), BlocksToMB( Blocks( rsize ) ) );
 
 	return 0;
 }
@@ -255,7 +222,7 @@ int FillPartLayout(const char* Layout)
 		// Make sure to not overlap partition array
 		if ( idxPart >= ARRAYSIZE( vparts.pdef ) )
 		{
-			fprintf( stderr, "Too many partitions, max=%d\n", ARRAYSIZE( vparts.pdef ) );
+			fprintf( stderr, "Too many partitions, max=%lu\n", ARRAYSIZE( vparts.pdef ) );
 			return -1;
 		}
 
@@ -283,8 +250,8 @@ int FillPartLayout(const char* Layout)
 	{
 		vparts.pdef[i].asize = ( vparts.pdef[i].size == 0 );
 		varCount += ( vparts.pdef[i].asize != 0 );
-		fprintf( stderr, "\t\t %s, blocks=%d, size=%d MB\n", vparts.pdef[i].name, 
-			vparts.pdef[i].size, BlocksToMB( vparts.pdef[i].size ) );
+		fprintf( stderr, "\t\t %s, blocks=%d, size=%d MB%s\n", vparts.pdef[i].name, 
+			vparts.pdef[i].size, BlocksToMB( vparts.pdef[i].size ), (vparts.pdef[i].size  == 0 ? " (auto-size)" : "") );
 	}
 
 	// Validate number of variable partitions (max one allowed)
@@ -315,7 +282,7 @@ int AddPartImage(const char* fileName, int length)
 	// Make sure to not overwrite partition array
 	if ( data.noParts >= ARRAYSIZE( data.parts ) )
 	{
-		fprintf( stderr, "Too many ROM partitions, max=%d\n", ARRAYSIZE( data.parts ) );
+		fprintf( stderr, "Too many ROM partitions, max=%lu\n", ARRAYSIZE( data.parts ) );
 		return -1;
 	}
 
@@ -340,7 +307,7 @@ int AddPartData(void* pData, int length)
 	// Make sure to not overwrite partition array
 	if ( data.noParts >= ARRAYSIZE( data.parts ) )
 	{
-		fprintf( stderr, "Too many ROM partitions, max=%d\n", ARRAYSIZE( data.parts ) );
+		fprintf( stderr, "Too many ROM partitions, max=%lu\n", ARRAYSIZE( data.parts ) );
 		return -1;
 	}
 
@@ -510,10 +477,9 @@ void Save(const char* fileName, int nb)
 	fclose( out );
 }
 
-/* koko : Cosmetic change to output of app */
 int main(int argc, char* argv[])
 {
-	printf( "=== nbgen v1.5: NB Generator\n" );
+	printf( "=== nbgen v1.6: NB Generator\n" );
 	printf( "=== Created by cedesmith - Optimized by xdmcdmc - Messed up by kokotas\n" );
 	printf( "\n" );
 	if ( argc < 2 )
@@ -526,6 +492,10 @@ int main(int argc, char* argv[])
 						 "             set the binary file of the lk\n"
 						 "          -r:recovery.img\n"
 						 "             set the img file of the recovery to be included\n"
+						 "          -k:boot.img\n"
+						 "             set the img file of the boot to be included\n"
+						 "          -s:system.img\n"
+						 "             set the img file of the system to be included\n"
 						 "          -x:partition-name.img\n"
 						 "             set the img file of the named partition to be included\n"
 						 "          -p:%s\n"
@@ -540,8 +510,10 @@ int main(int argc, char* argv[])
 	int nb = 0;
 	short extRom = 0;
 	const char* outFile = NULL;
+	const char* bldrFile = NULL;
 	const char* bootFile = NULL;
 	const char* recoveryFile = NULL;
+	const char* systemFile = NULL;
 	const char* xtraFile = NULL;
 	partLayout = NULL;
 
@@ -571,11 +543,19 @@ int main(int argc, char* argv[])
 			break;
 
 		case 'b':
-			bootFile = param;
+			bldrFile = param;
 			break;
 
 		case 'r':
 			recoveryFile = param;
+			break;
+
+		case 'k':
+			bootFile = param;
+			break;
+
+		case 's':
+			systemFile = param;
 			break;
 
 		case 'x':
@@ -599,7 +579,7 @@ int main(int argc, char* argv[])
 	//////////////////////////////////////////////////////////////////////////
 	// Create partition layout
 
-	noParts = noRec = noXtra = 0;
+	noParts = noRec = noXtra = noBoot = noSys = 0;
 	memset( &vparts, 0, sizeof( vparts ) );
 
 	strcpy( vparts.tag, TAG_INFO );
@@ -626,27 +606,41 @@ int main(int argc, char* argv[])
 	}
 
 	// LK partition
-	if ( FillLKPart( bootFile ) == -1 )
+	if ( FillLKPart( bldrFile ) == -1 )
 		return 2;
 	
 	// Fill partition layout (use default if not specified)
 	if ( FillPartLayout( partLayout ) == -1 )
 		return 2;
 
-	fprintf( stderr, "[] Partition num:\n\t\t %d\n", noParts );
-	fprintf( stderr, "[] PTABLE size:\n\t\t %d bytes\n", sizeof( vparts ) );
+	fprintf( stderr, "[] Partition num:\n\t\t %i\n", noParts );
+	fprintf( stderr, "[] PTABLE size:\n\t\t %lu bytes\n", sizeof( vparts ) );
 	
 	// If we include another image file
 	if ( xtraFile != NULL )
 	{
-		if ( FillXtraPart( xtraFile ) == -1 )
+		if ( FillPart( xtraFile, &noXtra ) == -1 )
 			return 2;
 	}
 	
 	// Recovery partition
 	if ( recoveryFile != NULL )
 	{
-		if ( FillRecoveryPart( recoveryFile ) == -1 )
+		if ( FillPart( recoveryFile, &noRec ) == -1 )
+			return 2;
+	}
+	
+	// Boot partition
+	if ( bootFile != NULL )
+	{
+		if ( FillPart( bootFile, &noBoot ) == -1 )
+			return 2;
+	}
+	
+	// System partition
+	if ( systemFile != NULL )
+	{
+		if ( FillPart( systemFile, &noSys ) == -1 )
 			return 2;
 	}
 	
@@ -656,12 +650,12 @@ int main(int argc, char* argv[])
 	memset( &data, 0, sizeof( data ) );
 
 	// cLK image
-	if ( bootFile == NULL )
+	if ( bldrFile == NULL )
 	{
 		fprintf( stderr, "Boot (cLK) file name not found\n" );
 		return 2;
 	}
-	if ( AddPartImage( bootFile , (vparts.pdef[0].size - 1) * 0x20000 ) == -1 )
+	if ( AddPartImage( bldrFile , (vparts.pdef[0].size - 1) * 0x20000 ) == -1 )
 		return 2;
 
 	// Partition image
@@ -669,31 +663,30 @@ int main(int argc, char* argv[])
 		return 2;
 		
 	printf( "\n" );
-	if ( noRec < noXtra ) // Recovery is before the extra partition
+	for ( int j = 1; j < noParts+1 ; j++ )
 	{
-		// Recovery image
-		if ( recoveryFile != NULL )
-		{
-			if ( AddPartImage( recoveryFile , vparts.pdef[noRec].size * 0x20000 ) == -1 )
-				return 2;
-		}
 		// Add another image
-		if ( xtraFile != NULL )
+		if ( xtraFile != NULL && j == noXtra )
 		{
-			if ( AddPartImage( xtraFile , vparts.pdef[noXtra].size * 0x20000 ) == -1 )
-				return 2;
-		}
-	}else{
-		// Add another image
-		if ( xtraFile != NULL )
-		{
-			if ( AddPartImage( xtraFile , vparts.pdef[noXtra].size * 0x20000 ) == -1 )
+			if ( AddPartImage( xtraFile , vparts.pdef[j].size * 0x20000 ) == -1 )
 				return 2;
 		}
 		// Recovery image
-		if ( recoveryFile != NULL )
+		if ( recoveryFile != NULL && j == noRec )
 		{
-			if ( AddPartImage( recoveryFile , vparts.pdef[noRec].size * 0x20000 ) == -1 )
+			if ( AddPartImage( recoveryFile , vparts.pdef[j].size * 0x20000 ) == -1 )
+				return 2;
+		}
+		// Boot image
+		if ( bootFile != NULL && j == noBoot )
+		{
+			if ( AddPartImage( bootFile , vparts.pdef[j].size * 0x20000 ) == -1 )
+				return 2;
+		}
+		// System image
+		if ( systemFile != NULL && j == noSys )
+		{
+			if ( AddPartImage( systemFile , vparts.pdef[j].size * 0x20000 ) == -1 )
 				return 2;
 		}
 	}
