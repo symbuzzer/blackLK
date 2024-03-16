@@ -519,7 +519,7 @@ void device_create_default()
 	device_add( "recovery:8" );
 	device_add( "boot:5" );
 	device_add( "misc:1" );
-	device_add( "system:150" );
+	device_add( "system:104" );
 	device_add( "userdata:0" );
 	if(device_info.extrom_enabled){
 	//device_add( "null:1:b" );
