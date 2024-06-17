@@ -9,11 +9,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: CI Build
-      run: gcc -O nbgen nbgen.c && chmod +x ci-build.sh && ./ci-build.sh
+      run: chmod +x ci-build.sh && ./ci-build.sh
 
     - uses: actions/upload-artifact@v3
       with:
-        name: cLK (bin)
+        name: LK (bin)
         path: ./build-htcleo/lk.bin
     - uses: actions/upload-artifact@v3
       with:
