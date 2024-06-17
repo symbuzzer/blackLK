@@ -15,8 +15,8 @@
 #define ARRAYSIZE( array ) ( sizeof( array ) / sizeof( array[0] ) )
 
 #define TAG_INFO			"DEVINFO"
-#define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=5"
-#define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=150,userdata=0,cache=192!"
+#define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=117,userdata=0,cache=5"
+#define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=117,userdata=0,cache=192!"
 
 const char* partLayout;
 
@@ -585,9 +585,9 @@ int main(int argc, char* argv[])
 	strcpy( vparts.tag, TAG_INFO );
 	vparts.extrom_enabled = extRom;
 	fprintf( stderr, "[] ExtROM:\n\t\t %s\n", (extRom == 0 ? "Disabled" : "Enabled") );
-	vparts.fill_bbt_at_start = 0;
+	vparts.fill_bbt_at_start = 1;
 	vparts.inverted_colors = 0;
-	vparts.show_startup_info = 0;
+	vparts.show_startup_info = 1;
 	vparts.usb_detect = 1;
 	vparts.cpu_freq = 0;
 	vparts.boot_sel = 0;
