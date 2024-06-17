@@ -3388,6 +3388,8 @@ void cmd_oem_help()
 void cmd_oem_credits(void)
 {
 	fbcon_setfg(inverted ? 0x0000 : 0xffff);
+	printf("   Ali BEYAZ (aka symbuzzer@XDA), 2024),\n");	
+	printf("   Aljoshua Hell, Dominduchami for still developing amazing things for LEO,\n");
 	printf("   xda-developers.com for being an educational portal,\n");
 	printf("   bepe, Cotulla and DFT for the HardSPL and their over-all\n\
 		   contribution to HD2(Android, WP7, etc.),\n");
@@ -3411,7 +3413,7 @@ void cmd_oem_credits(void)
 	printf("   spalm for the wp7 style android HD2 bootanimation\n\
 		   from which came the htc HD2 logo,\n");
 	printf("   stirkac for his fantastic documentation on HowTo,\n");
-	printf("   ALL who worked on making linux kernel possible on hd2.\n");
+	printf("   ALL who worked on making linux kernel possible on HD2.\n");
 }
 
 /*
