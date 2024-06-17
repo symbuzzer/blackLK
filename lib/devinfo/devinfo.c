@@ -496,7 +496,7 @@ void device_list()
 	printf("    ____________________________________________________ \n\
 		   |                  PARTITION  TABLE                  |\n\
 		   |____________________________________________________|\n\
-		   | MTDBLOCK# |   NAME   | AUTO-SIZE |  BLOCKS  |  MB  |\n");
+		   | MTDBLOCK #|   NAME   | AUTO-SIZE |  BLOCKS  |  MB  |\n");
 	printf("   |===========|==========|===========|==========|======|\n");
 	for ( unsigned i = 1; i < MAX_NUM_PART; i++ )
 	{
@@ -519,7 +519,7 @@ void device_create_default()
 	device_add( "recovery:8" );
 	device_add( "boot:5" );
 	device_add( "misc:1" );
-	device_add( "system:104" );
+	device_add( "system:117" );
 	device_add( "userdata:0" );
 	if(device_info.extrom_enabled){
 	//device_add( "null:1:b" );
@@ -593,9 +593,9 @@ void init_device()
 	if ( strcmp( device_info.tag, TAG_INFO ) )
 	{
 		device_info.extrom_enabled = 0;
-		device_info.fill_bbt_at_start = 0;
+		device_info.fill_bbt_at_start = 1;
 		device_info.inverted_colors = 0;
-		device_info.show_startup_info = 0;
+		device_info.show_startup_info = 1;
 		device_info.usb_detect = 1;
 		device_info.cpu_freq = 0;
 		device_info.boot_sel = 0;
