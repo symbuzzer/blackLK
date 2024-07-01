@@ -8,7 +8,7 @@ tar xvfj arm-2009q3-68-arm-none-eabi-i686-pc-linux-gnu.tar.bz2
 
 make htcleo TOOLCHAIN_PREFIX=./arm-2009q3/bin/arm-none-eabi-
 
-cp ./build-htcleo/lk.bin ./bin/bootpatpayload.bin
+cp ./build-htcleo/lk.bin ./bin/bootpayload.bin
 
 cd bin
 chmod +x yang
