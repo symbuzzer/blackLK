@@ -13,9 +13,13 @@ jobs:
 
     - uses: actions/upload-artifact@v4
       with:
-        name: LK (bin)
-        path: ./build-htcleo/lk.bin
+        name: bin
+        path: ./build-htcleo/*.bin
     - uses: actions/upload-artifact@v4
       with:
-        name: cLK (LEOIMG.nbh)
+        name: nbh
         path: ./LEOIMG.nbh
+    - uses: actions/upload-artifact@v4
+      with:
+        name: nb
+        path: ./os.nb
