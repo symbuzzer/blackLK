@@ -15,8 +15,8 @@
 #define ARRAYSIZE( array ) ( sizeof( array ) / sizeof( array[0] ) )
 
 #define TAG_INFO			"DEVINFO"
-#define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=117,userdata=0,cache=5"
-#define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=117,userdata=0,cache=192!"
+#define PART_DEFAULT		"recovery=8,boot=5,misc=1,system=110,userdata=0,cache=5"
+#define PART_DEFAULT_EXT_ON	"recovery=8,boot=5,misc=1,system=110,userdata=0,cache=192!"
 
 const char* partLayout;
 
