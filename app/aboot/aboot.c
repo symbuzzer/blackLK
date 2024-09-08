@@ -1464,7 +1464,7 @@ void eval_shared_menu(char *command)
 		printf("    ____________________________________________________ \n\
 			   |                  PARTITION  TABLE                  |\n\
 			   |____________________________________________________|\n\
-			   | MTDBLOCK# |   NAME   | AUTO-SIZE |  BLOCKS  |  MB  |\n");
+			   | MTDBLOCK #|   NAME   | AUTO-SIZE |  BLOCKS  |  MB  |\n");
 		printf("   |===========|==========|===========|==========|======|\n");
 		int ordercount=1;
 		for ( unsigned i = 1; i < MAX_NUM_PART+1; i++ )	{
@@ -3390,6 +3390,7 @@ void cmd_oem_credits(void)
 	fbcon_setfg(inverted ? 0x0000 : 0xffff);
 	printf("   Ali BEYAZ (aka symbuzzer@XDA), 2024),\n");	
 	printf("   Aljoshua Hell, Dominduchami for still developing amazing things for LEO,\n");
+	printf("   Clara Thrace, codelindro, halal beef for their supports on Telegram,\n");
 	printf("   xda-developers.com for being an educational portal,\n");
 	printf("   bepe, Cotulla and DFT for the HardSPL and their over-all\n\
 		   contribution to HD2(Android, WP7, etc.),\n");
