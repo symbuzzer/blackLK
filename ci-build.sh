@@ -13,6 +13,6 @@ cp ./build-htcleo/lk.bin ./bin/bootpayload.bin
 cd bin
 chmod +x yang
 ./nbgen os.nb
-./yang -F RUU_signed.nbh -f os.nb -t 0x400 -s 64 -d PB8110000 -c 11111111 -v CLK1.4.0.2 -l WWE
+./yang -F RUU_signed.nbh -f os.nb -t 0x400 -s 64 -d PB8110000 -c 11111111 -v CLK1.6.0.0 -l WWE
 cd ..
 cp bin/RUU_signed.nbh ./LEOIMG.nbh
