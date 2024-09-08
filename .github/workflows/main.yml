@@ -9,7 +9,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: CI Build
-      run: chmod +x ci-build.sh && ./ci-build.sh
+      run: chmod +x build.sh && ./build.sh
 
     - uses: actions/upload-artifact@v4
       with:
