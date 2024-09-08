@@ -1,0 +1,25 @@
+name: compile
+on: [workflow_dispatch]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: CI Build
+      run: chmod +x ci-build.sh && ./ci-build.sh
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: bin
+        path: ./build-htcleo/lk.bin
+    - uses: actions/upload-artifact@v4
+      with:
+        name: nbh
+        path: ./LEOIMG.nbh
+    - uses: actions/upload-artifact@v4
+      with:
+        name: nb
+        path: ./os.nb
